@@ -169,6 +169,13 @@ main{min-width:0}
 .chip.map::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--a);margin-right:6px;vertical-align:1px}
 .daynum{font-size:12px;color:var(--muted);margin:0 0 6px}
 
+.dnotes{margin:0 0 22px}
+.dnotes label{display:block;font-size:14px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.dnotes textarea{display:block;width:100%;min-height:76px;font:16px/1.5 var(--sans);color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;resize:vertical}
+.dnotes textarea::placeholder{color:var(--muted)}
+.dnotes .st{font-size:12px;color:var(--muted);min-height:18px;margin-top:4px}
+.notesbox{margin-top:18px}
+.notesbox .st{font-size:13px;color:var(--muted);margin-left:10px}
 .end{max-width:760px;margin:0 auto;padding:60px 20px 30px}
 .end h2{font-family:var(--serif);font-weight:400;font-size:clamp(40px,10vw,72px);line-height:1;margin:0 0 12px}
 .credits{max-width:760px;margin:0 auto;padding:10px 20px 60px;font-size:12px;color:var(--muted)}
@@ -275,13 +282,32 @@ for(const l of legs){
     const notes=[["Eat",d.food],["If there's time",d.extra],["Shopping",d.shop],["Getting around",d.travelnote]].filter(x=>x[1]);
     if(notes.length)h+=`<dl class="notes">${notes.map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
     const chips=[...(d.booked||[]).map(b=>`<span class="chip ok">Booked: ${esc(b)}</span>`),...(d.tobook||[]).map(b=>`<span class="chip todo">To book: ${esc(b)}</span>`),...(d.places||[]).map(p=>`<a class="chip map" href="${gmap(p)}" target="_blank" rel="noopener">${esc(p)}</a>`)];
-    if(chips.length)h+=`<div class="chips">${chips.join("")}</div>`;else h+=`<div style="height:18px"></div>`;
+    h+=chips.length?`<div class="chips">${chips.join("")}</div>`:`<div style="height:14px"></div>`;
+    h+=`<div class="dnotes"><label for="n-${d.date}">Notes</label><textarea id="n-${d.date}" data-date="${d.date}" placeholder="Anything to remember for this day"></textarea><div class="st" aria-live="polite"></div></div>`;
     a.innerHTML=h;sec.append(a);
   }
   main.append(sec);
 }
-main.append(el("section",{class:"end"},`<h2>Home.</h2><p>Forty-six days, eight countries, and a suitcase that probably smells amazing.</p>`));
+main.append(el("section",{class:"end"},`<h2>Home.</h2><p>Forty-six days, eight countries, and a suitcase that probably smells amazing.</p><div class="notesbox"><button class="btn" id="copyNotes" type="button">Copy all notes</button><span class="st" id="copySt" aria-live="polite"></span></div>`));
 main.append(el("section",{class:"credits"},`<details><summary>Photo credits</summary><p>Photos from Wikimedia Commons under their stated licences.</p><ul>${credits.map(c=>`<li><a href="${esc(c.u)}" target="_blank" rel="noopener">${esc(c.t)}</a>${c.a?`, ${esc(c.a)}`:""}, ${esc(c.l)}</li>`).join("")}</ul></details>`));
+
+
+// notes, saved on this device
+const NK=d=>"tt-notes-"+d;
+const getN=d=>{try{return localStorage.getItem(NK(d))||""}catch(e){return ""}};
+const setN=(d,v)=>{try{v?localStorage.setItem(NK(d),v):localStorage.removeItem(NK(d));return true}catch(e){return false}};
+document.querySelectorAll(".dnotes textarea").forEach(ta=>{
+  ta.value=getN(ta.dataset.date);
+  const st=ta.parentElement.querySelector(".st");let tm;
+  const fit=()=>{ta.style.height="auto";ta.style.height=Math.max(76,ta.scrollHeight+2)+"px"};fit();
+  ta.addEventListener("input",()=>{fit();clearTimeout(tm);st.textContent="Saving";tm=setTimeout(()=>{st.textContent=setN(ta.dataset.date,ta.value.trim())?"Saved on this device":"Couldn't save on this device"},500)});
+});
+document.getElementById("copyNotes").addEventListener("click",async()=>{
+  const lines=ALLDAYS.map(d=>{const v=getN(d.date);if(!v)return null;const dt=pd(d.date);return `${WD[dt.getDay()]} ${dt.getDate()} ${MON[dt.getMonth()]}, ${d.leg.city}: ${v}`}).filter(Boolean);
+  const st=document.getElementById("copySt");
+  if(!lines.length){st.textContent="No notes yet";return}
+  try{await navigator.clipboard.writeText(lines.join("\n\n"));st.textContent=`Copied notes from ${lines.length} day${lines.length>1?"s":""}`}catch(e){st.textContent="Copy blocked by this browser"}
+});
 
 // maps
 const big=document.getElementById("bigmap"),hm=document.getElementById("heromapsvg");
